@@ -54,9 +54,9 @@ app.post("/urls", (req, res) => {
     res.redirect(`/urls/${id}`); // Respond with 'Ok' (we will replace this)
 });
 
-// app.get("/", (req, res) => {
-//     res.send("Hello!");
-// });
+app.get("/", (req, res) => {
+    res.send("Hello!");
+});
 
 // app.get("/urls.json", (req, res) => {
 //     res.json(urlDatabase);
