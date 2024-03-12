@@ -73,7 +73,7 @@ app.post("/urls/:id/update", (req, res) => {
     res.redirect("/urls");
 });
 
-app.post("/urls/login", (req, res) => {
+app.post("/login", (req, res) => {
     const { username } = req.body;
     res.cookie("username", username);
     res.redirect("/urls");
