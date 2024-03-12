@@ -60,6 +60,18 @@ app.post("/urls/:id/delete", (req, res) => {
     res.redirect("/urls");
 });
 
+app.post("/urls/:id/edit", (req, res) => {
+    const id = req.params.id;
+    res.redirect(`/urls/${id}`);
+});
+
+app.post("/urls/:id/update", (req, res) => {
+    const id = req.params.id;
+    urlDatabase[id] = req.body.newURL;
+
+    res.redirect("/urls");
+});
+
 app.get("/", (req, res) => {
     res.send("Hello!");
 });
