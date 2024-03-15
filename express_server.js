@@ -20,6 +20,15 @@ function generateRandomString(length) {
     return result;
 }
 
+const idUserWithEmail = function (email) {
+    for (let key in users) {
+        if (users[key].email === email) {
+            return users[key];
+        }
+    }
+    return null;
+};
+
 const urlDatabase = {
     b2xVn2: "http://www.lighthouselabs.ca",
     "9sm5xK": "http://www.google.com",
@@ -100,6 +109,14 @@ app.post("/register", (req, res) => {
     const id = generateRandomString(6);
     const email = req.body.email;
     const password = req.body.password;
+    if (!email || !password) {
+        return res
+            .status(400)
+            .send("Email and password must be filled out to register");
+    }
+    if (idUserWithEmail(email)) {
+        return res.status(400).send("Email already exists");
+    }
     users[id] = {
         id: id,
         email: email,
