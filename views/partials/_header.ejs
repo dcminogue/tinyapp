@@ -19,8 +19,8 @@
         </div>
         <div class="d-flex justify-content-end align-items-center">
             <% if (!user) { %> 
-                <p class="mb-0">Log in</p>
-                <form method="POST" action="/login"> <input class="mr-3 ml-3" type="text" id="email" placeholder="email" name="email"/><button type="submit" class="btn btn-primary">Login</button></form>
+                <a href="/login" class="mr-3"><button type="button" class="btn btn-primary">Login</button></a>
+                <a href="/register"><button type="button" class="btn btn-primary">Register</button></a>
                 
                 <% } else { %>
                     <p class="mb-0">Logged in as: <%= user.email %></p>

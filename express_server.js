@@ -65,6 +65,10 @@ app.get("/u/:id", (req, res) => {
     res.redirect(longURL);
 });
 
+app.get("/login", (req, res) => {
+    res.render("login");
+});
+
 app.post("/urls", (req, res) => {
     const id = generateRandomString(6);
     const url = req.body.longURL;
