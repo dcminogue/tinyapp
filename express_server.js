@@ -20,6 +20,14 @@ function generateRandomString(length) {
     return result;
 }
 
+const verifyUser = function (email, password) {
+    for (let key in users) {
+        if (users[key].email === email && users[key].password === password)
+            return key; // Return user's ID on successful match
+    }
+    return null; // Return null if no matching user is found
+};
+
 const idUserWithEmail = function (email) {
     for (let key in users) {
         if (users[key].email === email) {
@@ -65,16 +73,21 @@ app.get("/u/:id", (req, res) => {
     res.redirect(longURL);
 });
 
-app.get("/login", (req, res) => {
-    res.render("login");
-});
-
 app.post("/urls", (req, res) => {
     const id = generateRandomString(6);
     const url = req.body.longURL;
     urlDatabase[id] = url;
     // urlDatabase.id = url; // Log the POST request body to the console
     res.redirect(`/urls/${id}`); // Respond with 'Ok' (we will replace this)
+});
+
+app.get("/login", (req, res) => {
+    const templateVars = {
+        user: users[req.cookies["user_id"]],
+    };
+
+    res.render("login", templateVars);
+    console.log(templateVars);
 });
 
 app.post("/urls/:id/delete", (req, res) => {
@@ -96,17 +109,21 @@ app.post("/urls/:id/update", (req, res) => {
 });
 
 app.post("/login", (req, res) => {
-    console.log(req.body.email);
-    const { email } = req.body;
-    res.cookie("user_id", email);
-    res.redirect("/urls");
+    const { email, password } = req.body;
+    const userId = verifyUser(email, password);
+    if (userId) {
+        // If verifyUser returns a valid userId, set user_id cookie and redirect
+        res.cookie("user_id", userId);
+        res.redirect("/urls");
+    } else {
+        // If verifyUser returns null, meaning no user was found or password didn't match
+        res.status(403).send("Error: Incorrect email or password.");
+    }
 });
 
-app.post("/logOut", (req, res) => {
-    console.log(req.body.email);
-    const { email } = req.body;
-    res.clearCookie("user_id", email);
-    res.redirect("/urls");
+app.post("/logout", (req, res) => {
+    res.clearCookie("user_id");
+    res.redirect("/login");
 });
 
 app.post("/register", (req, res) => {
@@ -126,6 +143,8 @@ app.post("/register", (req, res) => {
         email: email,
         password: password,
     };
+    console.log("New user registered:", users[id]); // Debugging line to check user registration
+    console.log("All registered users:", users);
 
     res.cookie("user_id", id);
 
@@ -138,28 +157,6 @@ app.get("/register", (req, res) => {
     };
     res.render("register", templateVars);
 });
-
-app.get("/", (req, res) => {
-    res.send("Hello!");
-});
-
-// app.get("/urls.json", (req, res) => {
-//     res.json(urlDatabase);
-// });
-
-// app.get("/hello", (req, res) => {
-//     res.send("<html><body>Hello <b>World</b></body></html>\n");
-// });
-
-// app.get("/set", (req, res) => {
-//     const a = 1;
-//     res.send(`a = ${a}`);
-// });
-
-// app.get("/fetch", (req, res) => {
-//     const a = 1;
-//     res.send(`a = ${a}`);
-// });
 
 app.listen(PORT, () => {
     console.log(`Example app listening on port ${PORT}!`);
