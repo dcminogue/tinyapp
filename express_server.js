@@ -39,8 +39,16 @@ const idUserWithEmail = function (email) {
 };
 
 const urlDatabase = {
-    b2xVn2: "http://www.lighthouselabs.ca",
-    "9sm5xK": "http://www.google.com",
+    b2xVn2: {
+        id: "b2xVn2",
+        longUrl: "http://www.lighthouselabs.ca",
+        userId: "aJ48lW",
+    },
+    "9sm5xK": {
+        id: "9sm5xK",
+        longUrl: "http://www.google.com",
+        userId: "aJ48lW",
+    },
 };
 
 const users = {};
@@ -58,10 +66,12 @@ app.get("/urls/new", (req, res) => {
 app.get("/urls/:id", (req, res) => {
     const templateVars = {
         id: req.params.id,
-        longURL: urlDatabase[req.params.id],
+        longUrl: urlDatabase[req.params.id].longUrl,
         user: users[req.cookies["user_id"]],
+        database: urlDatabase,
     };
-    res.render("urls_show", templateVars);
+
+    res.render("urls_show", templateVars); // If the long URL exists, redirect to it
 });
 
 app.get("/urls", (req, res) => {
@@ -69,12 +79,20 @@ app.get("/urls", (req, res) => {
         urls: urlDatabase,
         user: users[req.cookies["user_id"]],
     };
+
+    console.log("DB:", urlDatabase);
     res.render("urls_index", templateVars);
 });
 
 app.get("/u/:id", (req, res) => {
-    const longURL = urlDatabase[req.params.id];
-    res.redirect(longURL);
+    const id = req.params.id;
+    const longUrl = urlDatabase[req.params.id].longUrl;
+    console.log(longUrl);
+    if (longUrl) {
+        res.redirect(longUrl); // If the long URL exists, redirect to it
+    } else {
+        res.status(404).send("URL not found"); // If not found, you could send a 404 error
+    }
 });
 
 app.post("/urls", (req, res) => {
@@ -82,8 +100,9 @@ app.post("/urls", (req, res) => {
         return res.redirect("/login");
     }
     const id = generateRandomString(6);
-    const url = req.body.longURL;
-    urlDatabase[id] = url;
+    const longUrl = req.body.longURL;
+    const userId = req.body.user;
+    urlDatabase[id] = { id, longUrl, userId };
     // urlDatabase.id = url; // Log the POST request body to the console
     res.redirect(`/urls/${id}`); // Respond with 'Ok' (we will replace this)
 });
@@ -111,6 +130,7 @@ app.post("/urls/:id/delete", (req, res) => {
 });
 
 app.post("/urls/:id/edit", (req, res) => {
+    const user = users[req.cookies["user_id"]];
     if (!req.cookies["user_id"]) {
         return res.redirect(`/login?origin=modify`);
     }
@@ -120,7 +140,7 @@ app.post("/urls/:id/edit", (req, res) => {
 
 app.post("/urls/:id/update", (req, res) => {
     const id = req.params.id;
-    urlDatabase[id] = req.body.newURL;
+    urlDatabase[id].longUrl = req.body.newURL;
 
     res.redirect("/urls");
 });
