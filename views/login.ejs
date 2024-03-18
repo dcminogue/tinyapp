@@ -17,6 +17,10 @@
     <%- include ('partials/_header') %>
     <main style="margin: 1em;">
     
+    <% if (path === 'modify') { %>
+        <p> <%= alert %> </p>
+    <% } %>
+
     <form method= "POST" action="/login" >
         <div>
             <label for="email">Email address</label> <br/>

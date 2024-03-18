@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
 const cookieParser = require("cookie-parser");
+const request = require("request");
 app.set("view engine", "ejs");
 
 app.use(cookieParser());
@@ -45,6 +46,9 @@ const urlDatabase = {
 const users = {};
 
 app.get("/urls/new", (req, res) => {
+    if (!req.cookies["user_id"]) {
+        return res.redirect("/login");
+    }
     const templateVars = {
         user: users[req.cookies["user_id"]],
     };
@@ -74,6 +78,9 @@ app.get("/u/:id", (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
+    if (!req.cookies["user_id"]) {
+        return res.redirect("/login");
+    }
     const id = generateRandomString(6);
     const url = req.body.longURL;
     urlDatabase[id] = url;
@@ -82,21 +89,31 @@ app.post("/urls", (req, res) => {
 });
 
 app.get("/login", (req, res) => {
+    if (req.cookies.user_id) {
+        return res.redirect("/urls");
+    }
+    console.log(req.query);
     const templateVars = {
         user: users[req.cookies["user_id"]],
+        alert: "Log in to modify url.",
+        path: req.query.origin,
     };
-
     res.render("login", templateVars);
-    console.log(templateVars);
 });
 
 app.post("/urls/:id/delete", (req, res) => {
+    if (!req.cookies["user_id"]) {
+        return res.redirect(`/login?origin=modify`);
+    }
     const id = req.params.id;
     delete urlDatabase[id];
     res.redirect("/urls");
 });
 
 app.post("/urls/:id/edit", (req, res) => {
+    if (!req.cookies["user_id"]) {
+        return res.redirect(`/login?origin=modify`);
+    }
     const id = req.params.id;
     res.redirect(`/urls/${id}`);
 });
@@ -145,13 +162,14 @@ app.post("/register", (req, res) => {
     };
     console.log("New user registered:", users[id]); // Debugging line to check user registration
     console.log("All registered users:", users);
-
     res.cookie("user_id", id);
-
     res.redirect("/urls");
 });
 
 app.get("/register", (req, res) => {
+    if (req.cookies["user_id"]) {
+        return res.redirect("/urls");
+    }
     const templateVars = {
         user: users[req.cookies["user_id"]],
     };
