@@ -38,6 +38,16 @@ const idUserWithEmail = function (email) {
     return null;
 };
 
+const urlsForUser = function (id) {
+    let usersUrls = {};
+    for (let urlID in urlDatabase) {
+        if (urlDatabase[urlID].userId === id) {
+            usersUrls[urlID] = urlDatabase[urlID]; // Assign the whole URL object
+        }
+    }
+    return usersUrls;
+};
+
 const urlDatabase = {
     b2xVn2: {
         id: "b2xVn2",
@@ -63,30 +73,49 @@ app.get("/urls/new", (req, res) => {
     res.render("urls_new", templateVars);
 });
 
-app.get("/urls/:id", (req, res) => {
-    const templateVars = {
-        id: req.params.id,
-        longUrl: urlDatabase[req.params.id].longUrl,
-        user: users[req.cookies["user_id"]],
-        database: urlDatabase,
-    };
+app.post("/urls/:id", (req, res) => {
+    const userID = req.cookies["user_id"];
+    const urlID = req.params.id;
 
-    res.render("urls_show", templateVars); // If the long URL exists, redirect to it
+    // Check if the URL exists
+    if (!urlDatabase[urlID]) {
+        return res.status(404).send("URL not found.");
+    }
+
+    // Check if the user owns the URL
+    if (urlDatabase[urlID].userID !== userID) {
+        return res
+            .status(403)
+            .send("You do not have permission to edit this URL.");
+    }
+
+    // Proceed with URL update
+    urlDatabase[urlID].longURL = req.body.longURL; // Assuming longURL is passed in the request body
+    res.redirect("/urls");
 });
 
 app.get("/urls", (req, res) => {
+    const userID = req.cookies["user_id"];
+    if (!userID) {
+        return res.redirect("/login");
+    }
+
+    const user = users[userID]; // Assuming 'users' is your user database
+
+    const userSpecificUrls = urlsForUser(userID); // Filter the URLs for the logged-in user
+
     const templateVars = {
-        urls: urlDatabase,
-        user: users[req.cookies["user_id"]],
+        urls: userSpecificUrls, // Use the filtered URLs
+        user: user,
     };
 
-    console.log("DB:", urlDatabase);
+    console.log("DB:", userSpecificUrls);
     res.render("urls_index", templateVars);
 });
 
 app.get("/u/:id", (req, res) => {
     const id = req.params.id;
-    const longUrl = urlDatabase[req.params.id].longUrl;
+    const longUrl = urlDatabase[id].longUrl;
     console.log(longUrl);
     if (longUrl) {
         res.redirect(longUrl); // If the long URL exists, redirect to it
@@ -95,14 +124,27 @@ app.get("/u/:id", (req, res) => {
     }
 });
 
+app.get("/urls/:id", (req, res) => {
+    const id = req.params.id;
+    const longUrl = urlDatabase[id].longUrl;
+    const user = users[req.cookies.user_id];
+    const templateVars = {
+        id,
+        longUrl,
+        user,
+    };
+    res.render("urls_show", templateVars);
+});
+
 app.post("/urls", (req, res) => {
     if (!req.cookies["user_id"]) {
         return res.redirect("/login");
     }
     const id = generateRandomString(6);
     const longUrl = req.body.longURL;
-    const userId = req.body.user;
+    const userId = req.cookies.user_id;
     urlDatabase[id] = { id, longUrl, userId };
+    console.log(urlDatabase);
     // urlDatabase.id = url; // Log the POST request body to the console
     res.redirect(`/urls/${id}`); // Respond with 'Ok' (we will replace this)
 });
@@ -121,21 +163,19 @@ app.get("/login", (req, res) => {
 });
 
 app.post("/urls/:id/delete", (req, res) => {
-    if (!req.cookies["user_id"]) {
-        return res.redirect(`/login?origin=modify`);
-    }
-    const id = req.params.id;
-    delete urlDatabase[id];
-    res.redirect("/urls");
-});
+    const userID = req.cookies["user_id"];
+    const urlID = req.params.id;
 
-app.post("/urls/:id/edit", (req, res) => {
-    const user = users[req.cookies["user_id"]];
-    if (!req.cookies["user_id"]) {
-        return res.redirect(`/login?origin=modify`);
+    // Check if the user owns the URL
+    if (urlDatabase[urlID].userID !== userID) {
+        return res
+            .status(403)
+            .send("You do not have permission to delete this URL.");
     }
-    const id = req.params.id;
-    res.redirect(`/urls/${id}`);
+
+    // Proceed with URL deletion
+    delete urlDatabase[urlID];
+    res.redirect("/urls");
 });
 
 app.post("/urls/:id/update", (req, res) => {
