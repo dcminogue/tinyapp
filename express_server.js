@@ -1,4 +1,5 @@
 const express = require("express");
+const bcrypt = require("bcryptjs");
 const app = express();
 const PORT = 8080; // default port 8080
 const cookieParser = require("cookie-parser");
@@ -23,11 +24,23 @@ function generateRandomString(length) {
 
 const verifyUser = function (email, password) {
     for (let key in users) {
-        if (users[key].email === email && users[key].password === password)
+        // Check if the email matches and then use bcrypt to compare the password
+        if (
+            users[key].email === email &&
+            bcrypt.compareSync(password, users[key].password)
+        ) {
             return key; // Return user's ID on successful match
+        }
     }
     return null; // Return null if no matching user is found
 };
+// const verifyUser = function (email, password) {
+//     for (let key in users) {
+//         if (users[key].email === email && users[key].password === password)
+//             return key; // Return user's ID on successful match
+//     }
+//     return null; // Return null if no matching user is found
+// };
 
 const idUserWithEmail = function (email) {
     for (let key in users) {
@@ -162,21 +175,72 @@ app.get("/login", (req, res) => {
     res.render("login", templateVars);
 });
 
+// app.post("/urls/:id/delete", (req, res) => {
+//     const userID = req.cookies["user_id"];
+//     const urlID = req.params.id;
+//     // Use DB to access the URLs, ensuring consistency with your DB structure.
+//     const url = DB[urlID];
+
+//     // Check if the URL exists
+//     if (!url) {
+//         return res.status(404).send("URL not found.");
+//     }
+
+//     // Check if the user owns the URL
+//     if (url.userId !== userID) {
+//         // Note: It's crucial to match the case of properties as defined in your DB
+//         return res
+//             .status(403)
+//             .send("You do not have permission to delete this URL.");
+//     }
+
+//     // Proceed with URL deletion
+//     delete DB[urlID];
+//     res.redirect("/urls");
+// });
+
 app.post("/urls/:id/delete", (req, res) => {
     const userID = req.cookies["user_id"];
     const urlID = req.params.id;
+    // Make sure the variable name matches how you've defined it elsewhere.
+    const url = urlDatabase[urlID]; // Ensure consistent variable naming, assuming urlDatabase is the correct name.
+    // Check if the URL exists
+    if (!url) {
+        return res.status(404).send("URL not found.");
+    }
 
     // Check if the user owns the URL
-    if (urlDatabase[urlID].userID !== userID) {
+    if (url.userId !== userID) {
+        // Again, ensure the property names you are accessing exist on the object.
         return res
             .status(403)
             .send("You do not have permission to delete this URL.");
     }
 
+    console.log("urlDatabase[urlID]", urlDatabase[urlID]);
     // Proceed with URL deletion
     delete urlDatabase[urlID];
     res.redirect("/urls");
 });
+
+// app.post("/urls/:id/delete", (req, res) => {
+//     const userID = req.cookies["user_id"];
+//     const urlID = req.params.id;
+//     const url = urlsDatabase[urlId];
+//     // Check if the user owns the URL
+//     if (!url) {
+//         return res.status(404).send("URL not found.");
+//     }
+//     if (urlDatabase[urlID].userID !== userID) {
+//         return res
+//             .status(403)
+//             .send("You do not have permission to delete this URL.");
+//     }
+
+//     // Proceed with URL deletion
+//     delete urlDatabase[urlID];
+//     res.redirect("/urls");
+// });
 
 app.post("/urls/:id/update", (req, res) => {
     const id = req.params.id;
@@ -207,6 +271,7 @@ app.post("/register", (req, res) => {
     const id = generateRandomString(6);
     const email = req.body.email;
     const password = req.body.password;
+    const hashedPassword = bcrypt.hashSync(password, 10);
     if (!email || !password) {
         return res
             .status(400)
@@ -218,7 +283,7 @@ app.post("/register", (req, res) => {
     users[id] = {
         id: id,
         email: email,
-        password: password,
+        password: hashedPassword,
     };
     console.log("New user registered:", users[id]); // Debugging line to check user registration
     console.log("All registered users:", users);
