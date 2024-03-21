@@ -1,12 +1,19 @@
+const cookieSession = require("cookie-session");
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const app = express();
 const PORT = 8080; // default port 8080
-const cookieParser = require("cookie-parser");
 const request = require("request");
-app.set("view engine", "ejs");
 
-app.use(cookieParser());
+app.use(
+    cookieSession({
+        name: "session",
+        keys: ["key1", "key2"],
+        // Cookie Options
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    })
+);
+app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 
 function generateRandomString(length) {
@@ -77,17 +84,17 @@ const urlDatabase = {
 const users = {};
 
 app.get("/urls/new", (req, res) => {
-    if (!req.cookies["user_id"]) {
+    if (!req.session.user_id) {
         return res.redirect("/login");
     }
     const templateVars = {
-        user: users[req.cookies["user_id"]],
+        user: users[req.session.user_id],
     };
     res.render("urls_new", templateVars);
 });
 
 app.post("/urls/:id", (req, res) => {
-    const userID = req.cookies["user_id"];
+    const userID = req.session["user_id"];
     const urlID = req.params.id;
 
     // Check if the URL exists
@@ -108,7 +115,7 @@ app.post("/urls/:id", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-    const userID = req.cookies["user_id"];
+    const userID = req.session["user_id"];
     if (!userID) {
         return res.redirect("/login");
     }
@@ -140,7 +147,7 @@ app.get("/u/:id", (req, res) => {
 app.get("/urls/:id", (req, res) => {
     const id = req.params.id;
     const longUrl = urlDatabase[id].longUrl;
-    const user = users[req.cookies.user_id];
+    const user = users[req.session.user_id];
     const templateVars = {
         id,
         longUrl,
@@ -150,12 +157,12 @@ app.get("/urls/:id", (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
-    if (!req.cookies["user_id"]) {
+    if (!req.session["user_id"]) {
         return res.redirect("/login");
     }
     const id = generateRandomString(6);
     const longUrl = req.body.longURL;
-    const userId = req.cookies.user_id;
+    const userId = req.session.user_id;
     urlDatabase[id] = { id, longUrl, userId };
     console.log(urlDatabase);
     // urlDatabase.id = url; // Log the POST request body to the console
@@ -163,12 +170,12 @@ app.post("/urls", (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-    if (req.cookies.user_id) {
+    if (req.session.user_id) {
         return res.redirect("/urls");
     }
     console.log(req.query);
     const templateVars = {
-        user: users[req.cookies["user_id"]],
+        user: users[req.session["user_id"]],
         alert: "Log in to modify url.",
         path: req.query.origin,
     };
@@ -176,7 +183,7 @@ app.get("/login", (req, res) => {
 });
 
 // app.post("/urls/:id/delete", (req, res) => {
-//     const userID = req.cookies["user_id"];
+//     const userID = req.session["user_id"];
 //     const urlID = req.params.id;
 //     // Use DB to access the URLs, ensuring consistency with your DB structure.
 //     const url = DB[urlID];
@@ -200,7 +207,7 @@ app.get("/login", (req, res) => {
 // });
 
 app.post("/urls/:id/delete", (req, res) => {
-    const userID = req.cookies["user_id"];
+    const userID = req.session["user_id"];
     const urlID = req.params.id;
     // Make sure the variable name matches how you've defined it elsewhere.
     const url = urlDatabase[urlID]; // Ensure consistent variable naming, assuming urlDatabase is the correct name.
@@ -224,7 +231,7 @@ app.post("/urls/:id/delete", (req, res) => {
 });
 
 // app.post("/urls/:id/delete", (req, res) => {
-//     const userID = req.cookies["user_id"];
+//     const userID = req.session["user_id"];
 //     const urlID = req.params.id;
 //     const url = urlsDatabase[urlId];
 //     // Check if the user owns the URL
@@ -253,8 +260,8 @@ app.post("/login", (req, res) => {
     const { email, password } = req.body;
     const userId = verifyUser(email, password);
     if (userId) {
-        // If verifyUser returns a valid userId, set user_id cookie and redirect
-        res.cookie("user_id", userId);
+        // If verifyUser returns a valid userId, set user_id in the session and redirect
+        req.session.user_id = userId;
         res.redirect("/urls");
     } else {
         // If verifyUser returns null, meaning no user was found or password didn't match
@@ -262,10 +269,27 @@ app.post("/login", (req, res) => {
     }
 });
 
+// app.post("/login", (req, res) => {
+//     const { email, password } = req.body;
+//     const userId = verifyUser(email, password);
+//     if (userId) {
+//         // If verifyUser returns a valid userId, set user_id cookie and redirect
+//         res.session("user_id", userId);
+//         res.redirect("/urls");
+//     } else {
+//         // If verifyUser returns null, meaning no user was found or password didn't match
+//         res.status(403).send("Error: Incorrect email or password.");
+//     }
+// });
 app.post("/logout", (req, res) => {
-    res.clearCookie("user_id");
+    req.session = null; // Resetting the whole session
     res.redirect("/login");
 });
+
+// app.post("/logout", (req, res) => {
+//     res.clearCookie("user_id");
+//     res.redirect("/login");
+// });
 
 app.post("/register", (req, res) => {
     const id = generateRandomString(6);
@@ -287,16 +311,16 @@ app.post("/register", (req, res) => {
     };
     console.log("New user registered:", users[id]); // Debugging line to check user registration
     console.log("All registered users:", users);
-    res.cookie("user_id", id);
+    req.session.user_id = id;
     res.redirect("/urls");
 });
 
 app.get("/register", (req, res) => {
-    if (req.cookies["user_id"]) {
+    if (req.session["user_id"]) {
         return res.redirect("/urls");
     }
     const templateVars = {
-        user: users[req.cookies["user_id"]],
+        user: users[req.session["user_id"]],
     };
     res.render("register", templateVars);
 });
