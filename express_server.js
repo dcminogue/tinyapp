@@ -4,6 +4,11 @@ const bcrypt = require("bcryptjs");
 const app = express();
 const PORT = 8080; // default port 8080
 const request = require("request");
+const {
+    getUserWithEmail,
+    generateRandomString,
+    verifyUser,
+} = require("./helpers");
 
 app.use(
     cookieSession({
@@ -16,48 +21,6 @@ app.use(
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 
-function generateRandomString(length) {
-    const characters =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "";
-    const charactersLength = characters.length;
-    for (let i = 0; i < length; i++) {
-        result += characters.charAt(
-            Math.floor(Math.random() * charactersLength)
-        );
-    }
-    return result;
-}
-
-const verifyUser = function (email, password) {
-    for (let key in users) {
-        // Check if the email matches and then use bcrypt to compare the password
-        if (
-            users[key].email === email &&
-            bcrypt.compareSync(password, users[key].password)
-        ) {
-            return key; // Return user's ID on successful match
-        }
-    }
-    return null; // Return null if no matching user is found
-};
-// const verifyUser = function (email, password) {
-//     for (let key in users) {
-//         if (users[key].email === email && users[key].password === password)
-//             return key; // Return user's ID on successful match
-//     }
-//     return null; // Return null if no matching user is found
-// };
-
-const idUserWithEmail = function (email) {
-    for (let key in users) {
-        if (users[key].email === email) {
-            return users[key];
-        }
-    }
-    return null;
-};
-
 const urlsForUser = function (id) {
     let usersUrls = {};
     for (let urlID in urlDatabase) {
@@ -67,6 +30,23 @@ const urlsForUser = function (id) {
     }
     return usersUrls;
 };
+
+// const verifyUser = function (email, password) {
+//     for (let key in users) {
+//         if (users[key].email === email && users[key].password === password)
+//             return key; // Return user's ID on successful match
+//     }
+//     return null; // Return null if no matching user is found
+// };
+
+// const getUserWithEmail = function (email, users) {
+//     for (let key in users) {
+//         if (users[key].email === email) {
+//             return users[key];
+//         }
+//     }
+//     return null;
+// };
 
 const urlDatabase = {
     b2xVn2: {
@@ -301,7 +281,7 @@ app.post("/register", (req, res) => {
             .status(400)
             .send("Email and password must be filled out to register");
     }
-    if (idUserWithEmail(email)) {
+    if (getUserWithEmail(email, users)) {
         return res.status(400).send("Email already exists");
     }
     users[id] = {
