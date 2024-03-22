@@ -20,6 +20,7 @@ app.use(
 );
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 const urlsForUser = function (id) {
     let usersUrls = {};
@@ -30,23 +31,6 @@ const urlsForUser = function (id) {
     }
     return usersUrls;
 };
-
-// const verifyUser = function (email, password) {
-//     for (let key in users) {
-//         if (users[key].email === email && users[key].password === password)
-//             return key; // Return user's ID on successful match
-//     }
-//     return null; // Return null if no matching user is found
-// };
-
-// const getUserWithEmail = function (email, users) {
-//     for (let key in users) {
-//         if (users[key].email === email) {
-//             return users[key];
-//         }
-//     }
-//     return null;
-// };
 
 const urlDatabase = {
     b2xVn2: {
@@ -63,6 +47,13 @@ const urlDatabase = {
 
 const users = {};
 
+app.get("/", (req, res) => {
+    if (req.session.user_id) {
+        return res.redirect("/urls");
+    }
+    res.status(302).redirect("/login");
+});
+
 app.get("/urls/new", (req, res) => {
     if (!req.session.user_id) {
         return res.redirect("/login");
@@ -71,27 +62,6 @@ app.get("/urls/new", (req, res) => {
         user: users[req.session.user_id],
     };
     res.render("urls_new", templateVars);
-});
-
-app.post("/urls/:id", (req, res) => {
-    const userID = req.session["user_id"];
-    const urlID = req.params.id;
-
-    // Check if the URL exists
-    if (!urlDatabase[urlID]) {
-        return res.status(404).send("URL not found.");
-    }
-
-    // Check if the user owns the URL
-    if (urlDatabase[urlID].userID !== userID) {
-        return res
-            .status(403)
-            .send("You do not have permission to edit this URL.");
-    }
-
-    // Proceed with URL update
-    urlDatabase[urlID].longURL = req.body.longURL; // Assuming longURL is passed in the request body
-    res.redirect("/urls");
 });
 
 app.get("/urls", (req, res) => {
@@ -126,27 +96,33 @@ app.get("/u/:id", (req, res) => {
 
 app.get("/urls/:id", (req, res) => {
     const id = req.params.id;
-    const longUrl = urlDatabase[id].longUrl;
+    const urlEntry = urlDatabase[id];
+
+    if (!urlEntry) {
+        // If the URL doesn't exist
+        return res.status(404).send("URL not found.");
+    }
+
     const user = users[req.session.user_id];
+
+    if (!user) {
+        // If the user is not logged in
+        return res.status(403).send("You must be logged in to view this page.");
+    }
+
+    if (urlEntry.userId !== user.id) {
+        // If the URL does not belong to the logged-in user
+        return res
+            .status(403)
+            .send("You don't have permission to view this page.");
+    }
+
     const templateVars = {
         id,
-        longUrl,
+        longUrl: urlEntry.longUrl,
         user,
     };
     res.render("urls_show", templateVars);
-});
-
-app.post("/urls", (req, res) => {
-    if (!req.session["user_id"]) {
-        return res.redirect("/login");
-    }
-    const id = generateRandomString(6);
-    const longUrl = req.body.longURL;
-    const userId = req.session.user_id;
-    urlDatabase[id] = { id, longUrl, userId };
-    console.log(urlDatabase);
-    // urlDatabase.id = url; // Log the POST request body to the console
-    res.redirect(`/urls/${id}`); // Respond with 'Ok' (we will replace this)
 });
 
 app.get("/login", (req, res) => {
@@ -162,29 +138,49 @@ app.get("/login", (req, res) => {
     res.render("login", templateVars);
 });
 
-// app.post("/urls/:id/delete", (req, res) => {
-//     const userID = req.session["user_id"];
-//     const urlID = req.params.id;
-//     // Use DB to access the URLs, ensuring consistency with your DB structure.
-//     const url = DB[urlID];
+app.get("/register", (req, res) => {
+    if (req.session["user_id"]) {
+        return res.redirect("/urls");
+    }
+    const templateVars = {
+        user: users[req.session["user_id"]],
+    };
+    res.render("register", templateVars);
+});
 
-//     // Check if the URL exists
-//     if (!url) {
-//         return res.status(404).send("URL not found.");
-//     }
+app.post("/urls/:id", (req, res) => {
+    const userID = req.session["user_id"];
+    const urlID = req.params.id;
 
-//     // Check if the user owns the URL
-//     if (url.userId !== userID) {
-//         // Note: It's crucial to match the case of properties as defined in your DB
-//         return res
-//             .status(403)
-//             .send("You do not have permission to delete this URL.");
-//     }
+    // Check if the URL exists
+    if (!urlDatabase[urlID]) {
+        return res.status(404).send("URL not found.");
+    }
 
-//     // Proceed with URL deletion
-//     delete DB[urlID];
-//     res.redirect("/urls");
-// });
+    // Check if the user owns the URL
+    if (urlDatabase[urlID].userID !== userID) {
+        return res
+            .status(403)
+            .send("You do not have permission to edit this URL.");
+    }
+
+    // Proceed with URL update
+    urlDatabase[urlID].longURL = req.body.longURL; // Assuming longURL is passed in the request body
+    res.redirect("/urls");
+});
+
+app.post("/urls", (req, res) => {
+    if (!req.session["user_id"]) {
+        return res.redirect("/login");
+    }
+    const id = generateRandomString(6);
+    const longUrl = req.body.longURL;
+    const userId = req.session.user_id;
+    urlDatabase[id] = { id, longUrl, userId };
+    console.log(urlDatabase);
+    // urlDatabase.id = url; // Log the POST request body to the console
+    res.redirect(`/urls/${id}`); // Respond with 'Ok' (we will replace this)
+});
 
 app.post("/urls/:id/delete", (req, res) => {
     const userID = req.session["user_id"];
@@ -210,25 +206,6 @@ app.post("/urls/:id/delete", (req, res) => {
     res.redirect("/urls");
 });
 
-// app.post("/urls/:id/delete", (req, res) => {
-//     const userID = req.session["user_id"];
-//     const urlID = req.params.id;
-//     const url = urlsDatabase[urlId];
-//     // Check if the user owns the URL
-//     if (!url) {
-//         return res.status(404).send("URL not found.");
-//     }
-//     if (urlDatabase[urlID].userID !== userID) {
-//         return res
-//             .status(403)
-//             .send("You do not have permission to delete this URL.");
-//     }
-
-//     // Proceed with URL deletion
-//     delete urlDatabase[urlID];
-//     res.redirect("/urls");
-// });
-
 app.post("/urls/:id/update", (req, res) => {
     const id = req.params.id;
     urlDatabase[id].longUrl = req.body.newURL;
@@ -249,27 +226,10 @@ app.post("/login", (req, res) => {
     }
 });
 
-// app.post("/login", (req, res) => {
-//     const { email, password } = req.body;
-//     const userId = verifyUser(email, password);
-//     if (userId) {
-//         // If verifyUser returns a valid userId, set user_id cookie and redirect
-//         res.session("user_id", userId);
-//         res.redirect("/urls");
-//     } else {
-//         // If verifyUser returns null, meaning no user was found or password didn't match
-//         res.status(403).send("Error: Incorrect email or password.");
-//     }
-// });
 app.post("/logout", (req, res) => {
     req.session = null; // Resetting the whole session
     res.redirect("/login");
 });
-
-// app.post("/logout", (req, res) => {
-//     res.clearCookie("user_id");
-//     res.redirect("/login");
-// });
 
 app.post("/register", (req, res) => {
     const id = generateRandomString(6);
@@ -293,16 +253,6 @@ app.post("/register", (req, res) => {
     console.log("All registered users:", users);
     req.session.user_id = id;
     res.redirect("/urls");
-});
-
-app.get("/register", (req, res) => {
-    if (req.session["user_id"]) {
-        return res.redirect("/urls");
-    }
-    const templateVars = {
-        user: users[req.session["user_id"]],
-    };
-    res.render("register", templateVars);
 });
 
 app.listen(PORT, () => {
