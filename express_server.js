@@ -3,7 +3,6 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const app = express();
 const PORT = 8080; // default port 8080
-const request = require("request");
 const {
     getUserWithEmail,
     generateRandomString,
@@ -78,15 +77,12 @@ app.get("/urls", (req, res) => {
         urls: userSpecificUrls, // Use the filtered URLs
         user: user,
     };
-
-    console.log("DB:", userSpecificUrls);
     res.render("urls_index", templateVars);
 });
 
 app.get("/u/:id", (req, res) => {
     const id = req.params.id;
     const longUrl = urlDatabase[id].longUrl;
-    console.log(longUrl);
     if (longUrl) {
         res.redirect(longUrl); // If the long URL exists, redirect to it
     } else {
@@ -215,7 +211,7 @@ app.post("/urls/:id/update", (req, res) => {
 
 app.post("/login", (req, res) => {
     const { email, password } = req.body;
-    const userId = verifyUser(email, password);
+    const userId = verifyUser(email, password, users);
     if (userId) {
         // If verifyUser returns a valid userId, set user_id in the session and redirect
         req.session.user_id = userId;
